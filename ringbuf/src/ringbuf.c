@@ -64,7 +64,7 @@ enum {
 	Doorbell        = 0x0c,    /* Doorbell */
 };
 
-/* Consumer(read) or Producer(write) role of ring buffer*/
+/* Consumer(reader) or Producer(writer) role of ring buffer*/
 enum {
 	Consumer	= 	0,
 	Producer	=	1,
@@ -115,7 +115,6 @@ typedef struct ringbuf_device {
 	fifo*		fifo_addr;
 	unsigned int 	bufsize;
 	void __iomem	*payloads_st;
-	unsigned int 	*notify_addr;
 	spinlock_t	*write_lock;
 	
 	unsigned int 	role;
@@ -138,9 +137,6 @@ static void ringbuf_readmsg(struct tasklet_struct* data);
 
 static int event_toggle;
 DECLARE_WAIT_QUEUE_HEAD(wait_queue);
-DECLARE_WAIT_QUEUE_HEAD(wait_queue_poll);
-struct workqueue_struct *poll_workqueue;
-DECLARE_WORK(poll_work, ringbuf_poll);
 
 DECLARE_TASKLET(read_msg_tasklet, ringbuf_readmsg);
 
@@ -187,7 +183,6 @@ static long ringbuf_ioctl(struct file *fp, unsigned int cmd,  long unsigned int 
         	ivposition = (value & 0xffff0000) >> 16;
 
         	writel(value & 0xffffffff, dev->regs_addr + DOORBELL_REG_OFF);
-		ringbuf_notify(value);
         break;
 
 	case IOCTL_WAIT:
@@ -207,28 +202,6 @@ static long ringbuf_ioctl(struct file *fp, unsigned int cmd,  long unsigned int 
 	return 0;
 }
 
-static void ringbuf_poll(struct work_struct *work) {
-	void __iomem * nowhere;
-	unsigned int *writeto;
-
-	nowhere = ioremap(0xfee01004, 16);
-	if (!nowhere) 
-		printk(KERN_INFO "unable to ioremap nowhere\n");
-	writeto = (unsigned int *)nowhere;
-
-	*ringbuf_dev.notify_addr = 0;
-	while(TRUE) {
-		if(*ringbuf_dev.notify_addr > 0) {
-			(*ringbuf_dev.notify_addr)--;
-			*writeto = 0x29;
-		}
-		msleep(SLEEP_PERIOD_MSEC);
-	}
-}
-
-static inline void ringbuf_notify(unsigned int value) {
-	(*ringbuf_dev.notify_addr)++;
-}
 
 static irqreturn_t ringbuf_interrupt (int irq, void *dev_instance)
 {
@@ -352,9 +325,6 @@ static ssize_t ringbuf_read(struct file * filp, char * buffer, size_t len,
 		return 0;
 	}
 
-	// printk("relocating the kfifo.data: %lx => %lx\n",
-	// 		fifo_addr->kfifo.data,
-	// 		(void*)fifo_addr + 0x18);
 	fifo_addr->kfifo.data = (void*)fifo_addr + 0x18;
 
 	mb();
@@ -404,9 +374,6 @@ static ssize_t ringbuf_write(struct file * filp, const char * buffer,
 
 	wmb();
 
-	// printk("relocating the kfifo.data: %lx => %lx\n",
-	// 		fifo_addr->kfifo.data,
-	// 		(void*)fifo_addr + 0x18);
 	spin_lock(ringbuf_dev.write_lock);
 	fifo_addr->kfifo.data = (void*)fifo_addr + 0x18;
 
@@ -462,22 +429,6 @@ static int ringbuf_release(struct inode * inode, struct file * filp)
    	return 0;
 }
 
-// static void print_vec_tb(void) {
-// 	unsigned int *pt = (unsigned int *)ringbuf_dev.vec_tb;
-// 	unsigned long * pending = (unsigned long *)ringbuf_dev.vec_tb + 0x800;
-// 	int i;
-
-// 	for(i = 0; i < 4; i++) {
-// 		printk(KERN_INFO "Msg Addr: %x\n", *pt);
-// 		printk(KERN_INFO "Upper: %x\n", *(pt+1));
-// 		printk(KERN_INFO "Data: %x\n", *(pt+2));
-// 		printk(KERN_INFO "Control: %x\n", *(pt+3));
-// 		pt += 4;
-// 	}
-
-// 	printk(KERN_INFO "pending table: %x\n", *pending);
-	
-// }
 
 static int ringbuf_probe_device (struct pci_dev *pdev,
 				const struct pci_device_id * ent) 
@@ -545,8 +496,6 @@ static int ringbuf_probe_device (struct pci_dev *pdev,
 	ringbuf_dev.fifo_addr = (fifo*)ringbuf_dev.base_addr;
 	ringbuf_dev.payloads_st = ringbuf_dev.base_addr 
 					+ sizeof(fifo) + RINGBUF_SZ;	
-	ringbuf_dev.notify_addr =
-		(unsigned int *)(ringbuf_dev.base_addr + sizeof(fifo) + RINGBUF_SZ - 8);
 
 	ringbuf_dev.write_lock =
 		(spinlock_t *)(ringbuf_dev.base_addr + sizeof(fifo) + RINGBUF_SZ - 16);
@@ -573,12 +522,6 @@ static int ringbuf_probe_device (struct pci_dev *pdev,
 
 	ringbuf_fifo_init();
 
-	if(dev->role == Producer) {
-		ringbuf_write(NULL, "Connection established.", 24, 0);
-	} else { 
-		poll_workqueue = create_workqueue("poll_workqueue");
-		queue_work(poll_workqueue, &poll_work);
-	}
 	return 0;
 
 destroy_device:
