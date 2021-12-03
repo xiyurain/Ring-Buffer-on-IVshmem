@@ -83,11 +83,13 @@ typedef struct ringbuf_msg_hd {
 typedef STRUCT_KFIFO(char, RINGBUF_SZ) fifo;
 
 /*
- * @base_addr: mapped start address of IVshmem space
+ * @ivposition: device ID in IVshmem
  * @regaddr: physical address of shmem PCIe dev regs
- * @ioaddr: physical address of IVshmem IO space
+ * @base_addr: mapped start address of IVshmem space
+ * @bar#_addr/size: address or size of IVshmem BAR
  * @fifo_addr: address of the Kfifo struct
  * @payloads_st: start address of the payloads area
+ * write_lock: multiple writer lock
 */
 
 typedef struct ringbuf_device {
@@ -98,7 +100,6 @@ typedef struct ringbuf_device {
 	unsigned int 	ivposition;
 
 	void __iomem 	*regs_addr;
-	void __iomem	*vec_tb;
 	void __iomem 	*base_addr;
 
 	unsigned int 	bar0_addr;
@@ -168,7 +169,6 @@ static struct pci_driver ringbuf_pci_driver = {
 };
 
 
-
 static long ringbuf_ioctl(struct file *fp, unsigned int cmd,  long unsigned int value)
 {
     	unsigned int ivposition;
@@ -202,7 +202,9 @@ static long ringbuf_ioctl(struct file *fp, unsigned int cmd,  long unsigned int 
 	return 0;
 }
 
-
+/* 
+ * interrupt handler, to receive message
+ */
 static irqreturn_t ringbuf_interrupt (int irq, void *dev_instance)
 {
 	struct ringbuf_device * dev = dev_instance;
