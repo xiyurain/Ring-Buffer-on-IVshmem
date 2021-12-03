@@ -1,0 +1,1 @@
+cmd_/home/iv_shmem-on-pcie/ringbuf/test/send_msg.ko := ld -r  -m elf_x86_64  --build-id=sha1  -T scripts/module.lds -o /home/iv_shmem-on-pcie/ringbuf/test/send_msg.ko /home/iv_shmem-on-pcie/ringbuf/test/send_msg.o /home/iv_shmem-on-pcie/ringbuf/test/send_msg.mod.o;  true

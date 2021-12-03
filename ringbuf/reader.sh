@@ -1,0 +1,1 @@
+insmod /bin/ringbuf/src/ringbuf.ko ROLE=0

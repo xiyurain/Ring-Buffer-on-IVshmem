@@ -1,0 +1,1 @@
+cmd_/home/iv_shmem-on-pcie/ringbuf/src/ringbuf.ko := ld -r  -m elf_x86_64  --build-id=sha1  -T scripts/module.lds -o /home/iv_shmem-on-pcie/ringbuf/src/ringbuf.ko /home/iv_shmem-on-pcie/ringbuf/src/ringbuf.o /home/iv_shmem-on-pcie/ringbuf/src/ringbuf.mod.o;  true

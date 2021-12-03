@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Encoding=UTF-8
+Name=Ningdun Secure Connector GUI
+Comment=Ningdun Secure Connector GUI
+Exec=bash -c '/usr/bin/ndsc-gui'
+Terminal=false
+Categories=System;Settings;
+X-GNOME-Autostart-enabled=true

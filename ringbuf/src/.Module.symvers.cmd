@@ -1,0 +1,1 @@
+cmd_/home/iv_shmem-on-pcie/ringbuf/src/Module.symvers := sed 's/\.ko$$/\.o/' /home/iv_shmem-on-pcie/ringbuf/src/modules.order | scripts/mod/modpost    -o /home/iv_shmem-on-pcie/ringbuf/src/Module.symvers -e -i Module.symvers   -T -
