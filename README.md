@@ -1,7 +1,11 @@
 # Ring-Buffer-on-IVshmem
 a ring buffer device driver with PCIe based on QEMU Inter-VM shared memory
 
-#### how to run the demo
+### how to run the demo
+
+#### dependency
+You need __qemu-system-x86_64__ and package __qemuutils__ to run the demo.
+
 First, start an ivshmem-server on the Host Machine.
 
 ``` ivshmem-server -l 4M -M fg-doorbell -n 4 -F -v ```
